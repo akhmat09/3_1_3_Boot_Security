@@ -95,9 +95,8 @@ public class UserRestController {
     private User convertToEntity(UserDto userDto) {
         User user = new User();
         user.setId(userDto.getId());
-        user.setUsername(userDto.getUsername());
+        user.setEmail(userDto.getEmail()); // Используем setEmail вместо setUsername
         user.setPassword(userDto.getPassword());
-        user.setEmail(userDto.getEmail());
         user.setFirstName(userDto.getFirstName());
         user.setLastName(userDto.getLastName());
         user.setAge(userDto.getAge());

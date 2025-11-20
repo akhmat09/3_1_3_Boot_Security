@@ -43,7 +43,8 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public User findByUsername(String username) {
-        return userRepository.findByUsername(username);
+        // Теперь username - это email, поэтому ищем по email
+        return userRepository.findByEmail(username);
     }
 
     @Override
@@ -81,7 +82,6 @@ public class UserServiceImpl implements UserService {
     }
 
     private void updateUserFields(User existingUser, User updatedUser) {
-        existingUser.setUsername(updatedUser.getUsername());
         existingUser.setEmail(updatedUser.getEmail());
         existingUser.setFirstName(updatedUser.getFirstName());
         existingUser.setLastName(updatedUser.getLastName());

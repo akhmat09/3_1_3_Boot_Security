@@ -19,13 +19,12 @@ public class User implements UserDetails {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String username;
+    private String email;
 
     @Column(nullable = false)
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
-    private String email;
     private String firstName;
     private String lastName;
     private int age;
@@ -40,10 +39,9 @@ public class User implements UserDetails {
 
     public User() {}
 
-    public User(String username, String password, String email, String firstName, String lastName, int age) {
-        this.username = username;
-        this.password = password;
+    public User(String email, String password, String firstName, String lastName, int age) {
         this.email = email;
+        this.password = password;
         this.firstName = firstName;
         this.lastName = lastName;
         this.age = age;
@@ -53,6 +51,12 @@ public class User implements UserDetails {
     @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return roles;
+    }
+
+    @Override
+    @JsonIgnore
+    public String getUsername() {
+        return email; // Просто возвращаем email
     }
 
     @Override
@@ -79,6 +83,7 @@ public class User implements UserDetails {
         return true;
     }
 
+    // Геттеры и сеттеры
     public Long getId() {
         return id;
     }
@@ -87,12 +92,12 @@ public class User implements UserDetails {
         this.id = id;
     }
 
-    public String getUsername() {
-        return username;
+    public String getEmail() {
+        return email;
     }
 
-    public void setUsername(String username) {
-        this.username = username;
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getPassword() {
@@ -101,14 +106,6 @@ public class User implements UserDetails {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
     }
 
     public String getFirstName() {

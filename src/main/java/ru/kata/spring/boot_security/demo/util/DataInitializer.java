@@ -43,11 +43,10 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void initializeUsers() {
-        if (userService.findByUsername("admin") == null) {
+        if (userService.findByUsername("admin@mail.ru") == null) {
             User admin = new User();
-            admin.setUsername("admin");
-            admin.setPassword(passwordEncoder.encode("admin"));
             admin.setEmail("admin@mail.ru");
+            admin.setPassword(passwordEncoder.encode("admin"));
             admin.setFirstName("Admin");
             admin.setLastName("Adminov");
             admin.setAge(35);
@@ -60,11 +59,10 @@ public class DataInitializer implements CommandLineRunner {
             userService.saveUser(admin);
         }
 
-        if (userService.findByUsername("user") == null) {
+        if (userService.findByUsername("user@mail.ru") == null) {
             User user = new User();
-            user.setUsername("user");
-            user.setPassword(passwordEncoder.encode("user"));
             user.setEmail("user@mail.ru");
+            user.setPassword(passwordEncoder.encode("user"));
             user.setFirstName("User");
             user.setLastName("Userov");
             user.setAge(30);
