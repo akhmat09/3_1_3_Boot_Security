@@ -11,8 +11,7 @@ import ru.kata.spring.boot_security.demo.entity.Role;
 import ru.kata.spring.boot_security.demo.service.UserService;
 import ru.kata.spring.boot_security.demo.service.RoleService;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.List;
 
 @Controller
 @RequestMapping("/admin")
@@ -27,13 +26,10 @@ public class AdminController {
         this.roleService = roleService;
     }
 
-    // Главная страница админки (SPA)
     @GetMapping
     public String displayAdminPanel() {
         return "admin/admin-panel";
     }
-
-    // ========== REST API для SPA ==========
 
     @GetMapping("/users")
     @ResponseBody
@@ -52,8 +48,7 @@ public class AdminController {
     @ResponseBody
     public ResponseEntity<?> createUser(@RequestBody UserDto userDto) {
         try {
-            User user = convertToEntity(userDto);
-            userService.saveUser(user);
+            User user = userService.createUserFromDto(userDto);
             return ResponseEntity.status(HttpStatus.CREATED).body(user);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error creating user: " + e.getMessage());
@@ -64,9 +59,7 @@ public class AdminController {
     @ResponseBody
     public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody UserDto userDto) {
         try {
-            User user = convertToEntity(userDto);
-            user.setId(id);
-            userService.updateUser(id, user);
+            User user = userService.updateUserFromDto(id, userDto);
             return ResponseEntity.ok(user);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error updating user: " + e.getMessage());
@@ -82,55 +75,7 @@ public class AdminController {
 
     @GetMapping("/roles")
     @ResponseBody
-    public ResponseEntity<?> getAllRoles() {
-        try {
-            List<Role> roles = roleService.getAllRoles();
-            List<Map<String, Object>> roleDtos = roles.stream()
-                    .map(role -> {
-                        Map<String, Object> roleMap = new HashMap<>();
-                        roleMap.put("id", role.getId());
-                        roleMap.put("name", role.getName());
-                        return roleMap;
-                    })
-                    .collect(Collectors.toList());
-            return ResponseEntity.ok(roleDtos);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    // ========== UTILITY METHODS ==========
-
-    private User convertToEntity(UserDto userDto) {
-        User user = new User();
-        user.setId(userDto.getId());
-        user.setEmail(userDto.getEmail());
-        user.setPassword(userDto.getPassword());
-        user.setFirstName(userDto.getFirstName());
-        user.setLastName(userDto.getLastName());
-        user.setAge(userDto.getAge());
-
-        Set<Role> roles = new HashSet<>();
-        if (userDto.getRoleIds() != null && !userDto.getRoleIds().isEmpty()) {
-            for (Long roleId : userDto.getRoleIds()) {
-                Role role = roleService.getAllRoles().stream()
-                        .filter(r -> r.getId().equals(roleId))
-                        .findFirst()
-                        .orElse(null);
-                if (role != null) {
-                    roles.add(role);
-                }
-            }
-        }
-
-        if (roles.isEmpty()) {
-            Role defaultRole = roleService.findByName("ROLE_USER");
-            if (defaultRole != null) {
-                roles.add(defaultRole);
-            }
-        }
-
-        user.setRoles(roles);
-        return user;
+    public ResponseEntity<List<Role>> getAllRoles() {
+        return ResponseEntity.ok(roleService.getAllRoles());
     }
 }

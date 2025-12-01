@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.kata.spring.boot_security.demo.dto.UserDto;
 import ru.kata.spring.boot_security.demo.entity.User;
 import ru.kata.spring.boot_security.demo.entity.Role;
 import ru.kata.spring.boot_security.demo.repository.UserRepository;
@@ -54,28 +55,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void saveUserWithRoles(User user, List<Long> roleIds) {
-
-        if (roleIds != null && !roleIds.isEmpty()) {
-            Set<Role> roles = new HashSet<>();
-            for (Long roleId : roleIds) {
-                Role role = roleService.getAllRoles().stream()
-                        .filter(r -> r.getId().equals(roleId))
-                        .findFirst()
-                        .orElse(null);
-                if (role != null) {
-                    roles.add(role);
-                }
-            }
-            user.setRoles(roles);
-        } else {
-
-            Role defaultRole = roleService.findByName("ROLE_USER");
-            if (defaultRole != null) {
-                user.setRoles(Set.of(defaultRole));
-            }
-        }
-
-
+        setUserRoles(user, roleIds);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         userRepository.save(user);
     }
@@ -83,39 +63,72 @@ public class UserServiceImpl implements UserService {
     @Override
     public void updateUser(Long id, User user) {
         User existingUser = getUserById(id);
-
-
-        existingUser.setEmail(user.getEmail());
-        existingUser.setFirstName(user.getFirstName());
-        existingUser.setLastName(user.getLastName());
-        existingUser.setAge(user.getAge());
-
-
-        if (user.getPassword() != null && !user.getPassword().trim().isEmpty()) {
-            existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
-        }
-
+        updateUserFields(existingUser, user);
         userRepository.save(existingUser);
     }
 
     @Override
     public void updateUserWithRoles(Long id, User user, List<Long> roleIds) {
         User existingUser = getUserById(id);
+        updateUserFields(existingUser, user);
+        setUserRoles(existingUser, roleIds);
+        userRepository.save(existingUser);
+    }
+
+    @Override
+    public void deleteUser(Long id) {
+        userRepository.deleteById(id);
+    }
+
+    @Override
+    public User createUserFromDto(UserDto userDto) {
+        User user = convertToEntity(userDto);
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        return userRepository.save(user);
+    }
+
+    @Override
+    public User updateUserFromDto(Long id, UserDto userDto) {
+        User existingUser = getUserById(id);
+        User updatedUser = convertToEntity(userDto);
+        updatedUser.setId(id);
 
 
-        existingUser.setEmail(user.getEmail());
-        existingUser.setFirstName(user.getFirstName());
-        existingUser.setLastName(user.getLastName());
-        existingUser.setAge(user.getAge());
+        existingUser.setEmail(updatedUser.getEmail());
+        existingUser.setFirstName(updatedUser.getFirstName());
+        existingUser.setLastName(updatedUser.getLastName());
+        existingUser.setAge(updatedUser.getAge());
 
 
-        if (user.getPassword() != null && !user.getPassword().trim().isEmpty()) {
-            existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
+        if (userDto.getPassword() != null && !userDto.getPassword().trim().isEmpty()) {
+            existingUser.setPassword(passwordEncoder.encode(userDto.getPassword()));
         }
 
 
+        existingUser.setRoles(updatedUser.getRoles());
+
+        return userRepository.save(existingUser);
+    }
+
+    private User convertToEntity(UserDto userDto) {
+        User user = new User();
+        user.setId(userDto.getId());
+        user.setEmail(userDto.getEmail());
+        user.setPassword(userDto.getPassword());
+        user.setFirstName(userDto.getFirstName());
+        user.setLastName(userDto.getLastName());
+        user.setAge(userDto.getAge());
+
+        setUserRoles(user, userDto.getRoleIds() != null ?
+                userDto.getRoleIds().stream().toList() : List.of());
+
+        return user;
+    }
+
+    private void setUserRoles(User user, List<Long> roleIds) {
+        Set<Role> roles = new HashSet<>();
+
         if (roleIds != null && !roleIds.isEmpty()) {
-            Set<Role> roles = new HashSet<>();
             for (Long roleId : roleIds) {
                 Role role = roleService.getAllRoles().stream()
                         .filter(r -> r.getId().equals(roleId))
@@ -125,20 +138,26 @@ public class UserServiceImpl implements UserService {
                     roles.add(role);
                 }
             }
-            existingUser.setRoles(roles);
-        } else {
+        }
 
+        if (roles.isEmpty()) {
             Role defaultRole = roleService.findByName("ROLE_USER");
             if (defaultRole != null) {
-                existingUser.setRoles(Set.of(defaultRole));
+                roles.add(defaultRole);
             }
         }
 
-        userRepository.save(existingUser);
+        user.setRoles(roles);
     }
 
-    @Override
-    public void deleteUser(Long id) {
-        userRepository.deleteById(id);
+    private void updateUserFields(User existingUser, User newUser) {
+        existingUser.setEmail(newUser.getEmail());
+        existingUser.setFirstName(newUser.getFirstName());
+        existingUser.setLastName(newUser.getLastName());
+        existingUser.setAge(newUser.getAge());
+
+        if (newUser.getPassword() != null && !newUser.getPassword().trim().isEmpty()) {
+            existingUser.setPassword(passwordEncoder.encode(newUser.getPassword()));
+        }
     }
 }
