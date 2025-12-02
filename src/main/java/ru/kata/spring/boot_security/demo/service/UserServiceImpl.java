@@ -12,6 +12,7 @@ import ru.kata.spring.boot_security.demo.repository.UserRepository;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -93,21 +94,40 @@ public class UserServiceImpl implements UserService {
         User updatedUser = convertToEntity(userDto);
         updatedUser.setId(id);
 
-
+        // Обновляем поля
         existingUser.setEmail(updatedUser.getEmail());
         existingUser.setFirstName(updatedUser.getFirstName());
         existingUser.setLastName(updatedUser.getLastName());
         existingUser.setAge(updatedUser.getAge());
 
-
+        // Обновляем пароль только если он не пустой
         if (userDto.getPassword() != null && !userDto.getPassword().trim().isEmpty()) {
             existingUser.setPassword(passwordEncoder.encode(userDto.getPassword()));
         }
 
-
+        // Обновляем роли
         existingUser.setRoles(updatedUser.getRoles());
 
         return userRepository.save(existingUser);
+    }
+
+    @Override
+    public UserDto convertToDto(User user) {
+        UserDto userDto = new UserDto();
+        userDto.setId(user.getId());
+        userDto.setEmail(user.getEmail());
+        userDto.setFirstName(user.getFirstName());
+        userDto.setLastName(user.getLastName());
+        userDto.setAge(user.getAge());
+
+        if (user.getRoles() != null) {
+            Set<Long> roleIds = user.getRoles().stream()
+                    .map(Role::getId)
+                    .collect(Collectors.toSet());
+            userDto.setRoleIds(roleIds);
+        }
+
+        return userDto;
     }
 
     private User convertToEntity(UserDto userDto) {

@@ -1,10 +1,10 @@
 package ru.kata.spring.boot_security.demo.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import ru.kata.spring.boot_security.demo.dto.UserDto;
 import ru.kata.spring.boot_security.demo.entity.User;
 import ru.kata.spring.boot_security.demo.entity.Role;
@@ -27,55 +27,74 @@ public class AdminController {
     }
 
     @GetMapping
-    public String displayAdminPanel() {
+    public String displayAdminPanel(Model model) {
+        List<User> users = userService.getAllUsers();
+        List<Role> roles = roleService.getAllRoles();
+        model.addAttribute("users", users);
+        model.addAttribute("allRoles", roles);
         return "admin/admin-panel";
     }
 
-    @GetMapping("/users")
-    @ResponseBody
-    public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
-    }
-
-    @GetMapping("/users/{id}")
-    @ResponseBody
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
-        User user = userService.getUserById(id);
-        return ResponseEntity.ok(user);
-    }
-
     @PostMapping("/users")
-    @ResponseBody
-    public ResponseEntity<?> createUser(@RequestBody UserDto userDto) {
+    public String createUser(@RequestParam String firstName,
+                             @RequestParam String lastName,
+                             @RequestParam int age,
+                             @RequestParam String email,
+                             @RequestParam String password,
+                             @RequestParam(value = "selectedRoles", required = false) List<Long> roleIds,
+                             RedirectAttributes redirectAttributes) {
         try {
-            User user = userService.createUserFromDto(userDto);
-            return ResponseEntity.status(HttpStatus.CREATED).body(user);
+            UserDto userDto = new UserDto();
+            userDto.setFirstName(firstName);
+            userDto.setLastName(lastName);
+            userDto.setAge(age);
+            userDto.setEmail(email);
+            userDto.setPassword(password);
+            userDto.setRoleIds(roleIds != null ? java.util.Set.copyOf(roleIds) : null);
+
+            userService.createUserFromDto(userDto);
+            redirectAttributes.addFlashAttribute("successMessage", "User created successfully");
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error creating user: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", "Error creating user: " + e.getMessage());
         }
+        return "redirect:/admin";
     }
 
-    @PutMapping("/users/{id}")
-    @ResponseBody
-    public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody UserDto userDto) {
+    @PostMapping("/users/edit/{id}")
+    public String updateUser(@PathVariable Long id,
+                             @RequestParam String firstName,
+                             @RequestParam String lastName,
+                             @RequestParam int age,
+                             @RequestParam String email,
+                             @RequestParam(required = false) String password,
+                             @RequestParam(value = "selectedRoles", required = false) List<Long> roleIds,
+                             RedirectAttributes redirectAttributes) {
         try {
-            User user = userService.updateUserFromDto(id, userDto);
-            return ResponseEntity.ok(user);
+            UserDto userDto = new UserDto();
+            userDto.setId(id);
+            userDto.setFirstName(firstName);
+            userDto.setLastName(lastName);
+            userDto.setAge(age);
+            userDto.setEmail(email);
+            userDto.setPassword(password);
+            userDto.setRoleIds(roleIds != null ? java.util.Set.copyOf(roleIds) : null);
+
+            userService.updateUserFromDto(id, userDto);
+            redirectAttributes.addFlashAttribute("successMessage", "User updated successfully");
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error updating user: " + e.getMessage());
+            redirectAttributes.addFlashAttribute("errorMessage", "Error updating user: " + e.getMessage());
         }
+        return "redirect:/admin";
     }
 
-    @DeleteMapping("/users/{id}")
-    @ResponseBody
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        userService.deleteUser(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/roles")
-    @ResponseBody
-    public ResponseEntity<List<Role>> getAllRoles() {
-        return ResponseEntity.ok(roleService.getAllRoles());
+    @PostMapping("/users/delete/{id}")
+    public String deleteUser(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        try {
+            userService.deleteUser(id);
+            redirectAttributes.addFlashAttribute("successMessage", "User deleted successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Error deleting user: " + e.getMessage());
+        }
+        return "redirect:/admin";
     }
 }
