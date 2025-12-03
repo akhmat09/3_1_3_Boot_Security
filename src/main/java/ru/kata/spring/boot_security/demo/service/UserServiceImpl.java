@@ -1,183 +1,76 @@
 package ru.kata.spring.boot_security.demo.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.kata.spring.boot_security.demo.dto.UserDto;
 import ru.kata.spring.boot_security.demo.entity.User;
-import ru.kata.spring.boot_security.demo.entity.Role;
 import ru.kata.spring.boot_security.demo.repository.UserRepository;
-
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class UserServiceImpl implements UserService {
-
     private final UserRepository userRepository;
-    private final RoleService roleService;
     private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    public UserServiceImpl(UserRepository userRepository, RoleService roleService, PasswordEncoder passwordEncoder) {
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
-        this.roleService = roleService;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<User> getAllUsers() {
-        return userRepository.findAll();
+        return userRepository.findAllWithRoles();
     }
 
     @Override
     @Transactional(readOnly = true)
     public User getUserById(Long id) {
-        return userRepository.findById(id)
+        return userRepository.findByIdWithRoles(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public User findByUsername(String username) {
-        return userRepository.findByUsername(username);
+        User user = userRepository.findByUsername(username);
+        if (user == null) {
+            throw new RuntimeException("User not found: " + username);
+        }
+        return user;
     }
 
     @Override
-    public void saveUser(User user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        userRepository.save(user);
-    }
-
-    @Override
-    public void saveUserWithRoles(User user, List<Long> roleIds) {
-        setUserRoles(user, roleIds);
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        userRepository.save(user);
-    }
-
-    @Override
-    public void updateUser(Long id, User user) {
-        User existingUser = getUserById(id);
-        updateUserFields(existingUser, user);
-        userRepository.save(existingUser);
-    }
-
-    @Override
-    public void updateUserWithRoles(Long id, User user, List<Long> roleIds) {
-        User existingUser = getUserById(id);
-        updateUserFields(existingUser, user);
-        setUserRoles(existingUser, roleIds);
-        userRepository.save(existingUser);
-    }
-
-    @Override
-    public void deleteUser(Long id) {
-        userRepository.deleteById(id);
-    }
-
-    @Override
-    public User createUserFromDto(UserDto userDto) {
-        User user = convertToEntity(userDto);
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
+    public User saveUser(User user) {
+        if (user.getPassword() != null && !user.getPassword().startsWith("$2a$")) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
         return userRepository.save(user);
     }
 
     @Override
-    public User updateUserFromDto(Long id, UserDto userDto) {
-        User existingUser = getUserById(id);
-        User updatedUser = convertToEntity(userDto);
-        updatedUser.setId(id);
+    public User updateUser(User user) {
+        User existingUser = getUserById(user.getId());
+        existingUser.setEmail(user.getEmail());
+        existingUser.setFirstName(user.getFirstName());
+        existingUser.setLastName(user.getLastName());
+        existingUser.setAge(user.getAge());
 
-        // Обновляем поля
-        existingUser.setEmail(updatedUser.getEmail());
-        existingUser.setFirstName(updatedUser.getFirstName());
-        existingUser.setLastName(updatedUser.getLastName());
-        existingUser.setAge(updatedUser.getAge());
-
-        // Обновляем пароль только если он не пустой
-        if (userDto.getPassword() != null && !userDto.getPassword().trim().isEmpty()) {
-            existingUser.setPassword(passwordEncoder.encode(userDto.getPassword()));
+        if (user.getPassword() != null && !user.getPassword().isEmpty()
+                && !user.getPassword().startsWith("$2a$")) {
+            existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
         }
 
-        // Обновляем роли
-        existingUser.setRoles(updatedUser.getRoles());
+        if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+            existingUser.setRoles(user.getRoles());
+        }
 
         return userRepository.save(existingUser);
     }
 
     @Override
-    public UserDto convertToDto(User user) {
-        UserDto userDto = new UserDto();
-        userDto.setId(user.getId());
-        userDto.setEmail(user.getEmail());
-        userDto.setFirstName(user.getFirstName());
-        userDto.setLastName(user.getLastName());
-        userDto.setAge(user.getAge());
-
-        if (user.getRoles() != null) {
-            Set<Long> roleIds = user.getRoles().stream()
-                    .map(Role::getId)
-                    .collect(Collectors.toSet());
-            userDto.setRoleIds(roleIds);
-        }
-
-        return userDto;
-    }
-
-    private User convertToEntity(UserDto userDto) {
-        User user = new User();
-        user.setId(userDto.getId());
-        user.setEmail(userDto.getEmail());
-        user.setPassword(userDto.getPassword());
-        user.setFirstName(userDto.getFirstName());
-        user.setLastName(userDto.getLastName());
-        user.setAge(userDto.getAge());
-
-        setUserRoles(user, userDto.getRoleIds() != null ?
-                userDto.getRoleIds().stream().toList() : List.of());
-
-        return user;
-    }
-
-    private void setUserRoles(User user, List<Long> roleIds) {
-        Set<Role> roles = new HashSet<>();
-
-        if (roleIds != null && !roleIds.isEmpty()) {
-            for (Long roleId : roleIds) {
-                Role role = roleService.getAllRoles().stream()
-                        .filter(r -> r.getId().equals(roleId))
-                        .findFirst()
-                        .orElse(null);
-                if (role != null) {
-                    roles.add(role);
-                }
-            }
-        }
-
-        if (roles.isEmpty()) {
-            Role defaultRole = roleService.findByName("ROLE_USER");
-            if (defaultRole != null) {
-                roles.add(defaultRole);
-            }
-        }
-
-        user.setRoles(roles);
-    }
-
-    private void updateUserFields(User existingUser, User newUser) {
-        existingUser.setEmail(newUser.getEmail());
-        existingUser.setFirstName(newUser.getFirstName());
-        existingUser.setLastName(newUser.getLastName());
-        existingUser.setAge(newUser.getAge());
-
-        if (newUser.getPassword() != null && !newUser.getPassword().trim().isEmpty()) {
-            existingUser.setPassword(passwordEncoder.encode(newUser.getPassword()));
-        }
+    public void deleteUser(Long id) {
+        userRepository.deleteById(id);
     }
 }
