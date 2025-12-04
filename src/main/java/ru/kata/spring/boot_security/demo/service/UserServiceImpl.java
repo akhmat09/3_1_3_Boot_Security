@@ -3,19 +3,25 @@ package ru.kata.spring.boot_security.demo.service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import ru.kata.spring.boot_security.demo.entity.User;
+import ru.kata.spring.boot_security.demo.entity.Role;
 import ru.kata.spring.boot_security.demo.repository.UserRepository;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Transactional
 public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RoleService roleService;
 
-    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, RoleService roleService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.roleService = roleService;
     }
 
     @Override
@@ -42,35 +48,83 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User saveUser(User user) {
-        if (user.getPassword() != null && !user.getPassword().startsWith("$2a$")) {
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
+    public void createUser(String firstName, String lastName, int age,
+                           String email, String password, List<Long> roleIds,
+                           RedirectAttributes redirectAttributes) {
+        try {
+            User user = new User();
+            user.setEmail(email);
+            user.setPassword(passwordEncoder.encode(password));
+            user.setFirstName(firstName);
+            user.setLastName(lastName);
+            user.setAge(age);
+
+            Set<Role> roles = getRolesFromIds(roleIds);
+            user.setRoles(roles);
+
+            userRepository.save(user);
+            redirectAttributes.addFlashAttribute("successMessage", "User created successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Error creating user: " + e.getMessage());
         }
-        return userRepository.save(user);
     }
 
     @Override
-    public User updateUser(User user) {
-        User existingUser = getUserById(user.getId());
-        existingUser.setEmail(user.getEmail());
-        existingUser.setFirstName(user.getFirstName());
-        existingUser.setLastName(user.getLastName());
-        existingUser.setAge(user.getAge());
+    public void updateUser(Long id, String firstName, String lastName, int age,
+                           String email, String password, List<Long> roleIds,
+                           RedirectAttributes redirectAttributes) {
+        try {
+            User existingUser = getUserById(id);
+            existingUser.setFirstName(firstName);
+            existingUser.setLastName(lastName);
+            existingUser.setAge(age);
+            existingUser.setEmail(email);
 
-        if (user.getPassword() != null && !user.getPassword().isEmpty()
-                && !user.getPassword().startsWith("$2a$")) {
-            existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
+            if (password != null && !password.trim().isEmpty()) {
+                existingUser.setPassword(passwordEncoder.encode(password));
+            }
+
+            if (roleIds != null && !roleIds.isEmpty()) {
+                Set<Role> roles = getRolesFromIds(roleIds);
+                existingUser.setRoles(roles);
+            }
+
+            userRepository.save(existingUser);
+            redirectAttributes.addFlashAttribute("successMessage", "User updated successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Error updating user: " + e.getMessage());
         }
-
-        if (user.getRoles() != null && !user.getRoles().isEmpty()) {
-            existingUser.setRoles(user.getRoles());
-        }
-
-        return userRepository.save(existingUser);
     }
 
     @Override
-    public void deleteUser(Long id) {
-        userRepository.deleteById(id);
+    public void deleteUser(Long id, RedirectAttributes redirectAttributes) {
+        try {
+            userRepository.deleteById(id);
+            redirectAttributes.addFlashAttribute("successMessage", "User deleted successfully");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("errorMessage", "Error deleting user: " + e.getMessage());
+        }
+    }
+
+    private Set<Role> getRolesFromIds(List<Long> roleIds) {
+        Set<Role> roles = new HashSet<>();
+
+        if (roleIds != null && !roleIds.isEmpty()) {
+            for (Long roleId : roleIds) {
+                roleService.getAllRoles().stream()
+                        .filter(r -> r.getId().equals(roleId))
+                        .findFirst()
+                        .ifPresent(roles::add);
+            }
+        }
+
+        if (roles.isEmpty()) {
+            Role defaultRole = roleService.findByName("ROLE_USER");
+            if (defaultRole != null) {
+                roles.add(defaultRole);
+            }
+        }
+
+        return roles;
     }
 }
