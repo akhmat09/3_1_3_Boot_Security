@@ -15,4 +15,5 @@ public interface UserService {
                     String email, String password, List<Long> roleIds,
                     RedirectAttributes redirectAttributes);
     void deleteUser(Long id, RedirectAttributes redirectAttributes);
+    User saveUser(User user);
 }

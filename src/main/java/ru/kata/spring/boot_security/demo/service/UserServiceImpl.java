@@ -127,4 +127,11 @@ public class UserServiceImpl implements UserService {
 
         return roles;
     }
+    @Override
+    public User saveUser(User user) {
+        if (user.getPassword() != null && !user.getPassword().startsWith("$2a$")) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
+        return userRepository.save(user);
+    }
 }
